@@ -151,6 +151,31 @@ namespace MuMech
 
         public MovingAverage3d angularVelocityAvg = new MovingAverage3d(5);
 
+        // instantaneous values
+        public double currentPitch
+        {
+            get
+            {
+                return (rotationVesselSurface.eulerAngles.x > 180) ? (360.0 - rotationVesselSurface.eulerAngles.x) : -rotationVesselSurface.eulerAngles.x;
+            }
+        }
+
+        public double currentRoll
+        {
+            get
+            {
+                return (rotationVesselSurface.eulerAngles.z > 180) ? (rotationVesselSurface.eulerAngles.z - 360.0) : rotationVesselSurface.eulerAngles.z;
+            }
+        }
+
+        public double currentHeading
+        {
+            get
+            {
+                return rotationVesselSurface.eulerAngles.y;
+            }
+        }
+
         public double radius;  //distance from planet center
 
         public double mass;
@@ -164,6 +189,9 @@ namespace MuMech
         public double thrustAvailable { get { return Vector3d.Dot(thrustVectorMaxThrottle, forward); } }
         public double thrustMinimum { get { return Vector3d.Dot(thrustVectorMinThrottle, forward); } }
         public double thrustCurrent { get { return Vector3d.Dot(thrustVectorLastFrame, forward); } }
+
+        // Forward direction of thrust (CoT-CoM).normalized
+        public Vector3d thrustForward;
 
         // Acceleration in the forward direction, for when dividing by mass is too complicated.
         public double maxThrustAccel { get { return thrustAvailable / mass; } }
@@ -665,9 +693,9 @@ namespace MuMech
             double tempAoD = UtilMath.Rad2Deg * Math.Acos(MuUtils.Clamp(Vector3.Dot(vessel.ReferenceTransform.up, surfaceVelocity.normalized), -1, 1));
             displacementAngle.value = double.IsNaN(tempAoD) || speedSurface.value < 0.01 ? 0 : tempAoD;
 
-            vesselHeading.value = rotationVesselSurface.eulerAngles.y;
-            vesselPitch.value = (rotationVesselSurface.eulerAngles.x > 180) ? (360.0 - rotationVesselSurface.eulerAngles.x) : -rotationVesselSurface.eulerAngles.x;
-            vesselRoll.value = (rotationVesselSurface.eulerAngles.z > 180) ? (rotationVesselSurface.eulerAngles.z - 360.0) : rotationVesselSurface.eulerAngles.z;
+            vesselHeading.value = currentHeading;
+            vesselPitch.value = currentPitch;
+            vesselRoll.value = currentRoll;
 
             altitudeASL.value = vessel.mainBody.GetAltitude(CoM);
 
@@ -909,6 +937,7 @@ namespace MuMech
             CoT = Vector3d.zero;
             DoT = Vector3d.zero;
             CoTScalar = 0;
+            thrustForward = Vector3d.zero;
 
             for (int i = 0; i < vessel.parts.Count; i++)
             {
@@ -1115,7 +1144,11 @@ namespace MuMech
             thrustVectorLastFrame = einfo.thrustCurrent;
 
             if (CoTScalar > 0)
+            {
                 CoT = CoT / CoTScalar;
+                thrustForward = ( CoM - CoT ).normalized;
+            }
+
             DoT = DoT.normalized;
 
             if (CoLScalar > 0)
