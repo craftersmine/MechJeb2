@@ -96,7 +96,7 @@ namespace MuMech {
             }
         }
 
-        public override void Bootstrap(double t0)
+        protected override void Bootstrap(double t0)
         {
             // set the final time guess
             Tf = t0 + tgo * 3.0 / 2.0;
@@ -108,7 +108,7 @@ namespace MuMech {
             vT = rot * (vf.xzy / v_scale);
 
             // build arcs off of ksp stages, with coasts
-            List<Arc> arcs = new List<Arc>();
+            ArcList arcs = new ArcList();
 
             arcs.Add(new Arc(this, t0: t0, coast: true));
 
@@ -160,7 +160,7 @@ namespace MuMech {
             }
 
             Solution new_sol = new Solution(t_scale, v_scale, r_scale, t0);
-            multipleIntegrate(y0, new_sol, arcs, 10);
+            multipleIntegrate(y0, new_sol, arcs);
 
             //Debug.Log("optimizer done");
             if ( new_sol.tgo(new_sol.t0, 0) < 0 )
@@ -183,13 +183,13 @@ namespace MuMech {
 
                 //Debug.Log("optimizer done");
                 new_sol = new Solution(t_scale, v_scale, r_scale, t0);
-                multipleIntegrate(y0, new_sol, arcs, 10);
+                multipleIntegrate(y0, new_sol, arcs);
             }
 
             //for(int k = 0; k < y0.Length; k++)
                 //Debug.Log("new y0[" + k + "] = " + y0[k]);
 
-            this.solution = new_sol;
+            this.Solution = new_sol;
             //Debug.Log("done with bootstrap");
         }
     }

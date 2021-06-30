@@ -23,10 +23,10 @@ namespace MuMech
         // this is the public API for ascentPathIdx which is enum type and does wiring
         public ascentType ascentPathIdxPublic {
             get {
-                return (ascentType) this.ascentPathIdx;
+                return (ascentType) ascentPathIdx;
             }
             set {
-                this.ascentPathIdx = (int) value;
+                ascentPathIdx = (int) value;
                 doWiring();
             }
         }
@@ -64,6 +64,8 @@ namespace MuMech
         [Persistent(pass = (int)(Pass.Type | Pass.Global))]
         public bool skipCircularization = false;
         [Persistent(pass = (int)(Pass.Type | Pass.Global))]
+        public EditableDouble rollAltitude = new EditableDouble(50);
+        [Persistent(pass = (int)(Pass.Type | Pass.Global))]
         public bool _autostage = true;
         public bool autostage
         {
@@ -74,7 +76,7 @@ namespace MuMech
                 _autostage = value;
                 if (changed)
                 {
-                    if (_autostage && this.enabled) core.staging.users.Add(this);
+                    if (_autostage && enabled) core.staging.users.Add(this);
                     if (!_autostage) core.staging.users.Remove(this);
                 }
             }
@@ -280,7 +282,7 @@ namespace MuMech
                 core.thrust.ThrustOff();
             }
 
-            core.attitude.AxisControl(false, false, false);
+            core.attitude.SetAxisControl(false, false, false);
 
             if (timedLaunch && tMinus > 10.0)
             {
@@ -313,7 +315,7 @@ namespace MuMech
                 // kill the optimizer if it is running.
                 core.guidance.enabled = false;
 
-                core.attitude.AxisControl(false, false, false);
+                core.attitude.SetAxisControl(false, false, false);
                 return;
             }
 
@@ -332,7 +334,7 @@ namespace MuMech
         {
             if (!vessel.patchedConicsUnlocked() || skipCircularization)
             {
-                this.users.Clear();
+                users.Clear();
                 return;
             }
 
@@ -347,7 +349,7 @@ namespace MuMech
                     if (recorder != null) launchLANDifference = vesselState.orbitLAN - recorder.markLAN;
 
                     //finished circularize
-                    this.users.Clear();
+                    users.Clear();
                     return;
                 }
             }
@@ -421,8 +423,8 @@ namespace MuMech
         {
             if ( type == ascentType.CLASSIC )
                 return core.GetComputerModule<MechJebModuleAscentClassicMenu>();
-            else
-                return null;
+
+            return null;
         }
 
     }
@@ -434,13 +436,11 @@ namespace MuMech
 
     public abstract class MechJebModuleAscentBase : ComputerModule
     {
-        public MechJebModuleAscentBase(MechJebCore core) : base(core) { }
+        protected MechJebModuleAscentBase(MechJebCore core) : base(core) { }
 
-        public string status { get; set; }
+        public string status { get; protected set; }
 
-        public MechJebModuleAscentAutopilot autopilot { get { return core.GetComputerModule<MechJebModuleAscentAutopilot>(); } }
-        private MechJebModuleStageStats stats { get { return core.GetComputerModule<MechJebModuleStageStats>(); } }
-        private FuelFlowSimulation.Stats[] vacStats { get { return stats.vacStats; } }
+        protected MechJebModuleAscentAutopilot autopilot => core.GetComputerModule<MechJebModuleAscentAutopilot>();
 
         public abstract bool DriveAscent(FlightCtrlState s);
 
@@ -571,6 +571,8 @@ namespace MuMech
                 }
             }
 
+            bool liftedOff = vessel.LiftedOff() && !vessel.Landed && vesselState.altitudeBottom > 5;
+
             double pitch = 90 - Vector3d.Angle(desiredThrustVector, vesselState.up);
 
             double hdg;
@@ -583,22 +585,23 @@ namespace MuMech
 
             if (autopilot.forceRoll)
             {
-                core.attitude.AxisControl(!vessel.Landed, !vessel.Landed, !vessel.Landed && (vesselState.altitudeBottom > 50));
                 if ( desiredPitch == 90.0)
                 {
-                    core.attitude.attitudeTo(hdg, pitch, autopilot.verticalRoll, this, !vessel.Landed, !vessel.Landed, !vessel.Landed && (vesselState.altitudeBottom > 50), true);
+                    core.attitude.attitudeTo(hdg, pitch, autopilot.verticalRoll, this, liftedOff, liftedOff, liftedOff && (vesselState.altitudeBottom > autopilot.rollAltitude), true);
                 }
                 else
                 {
-                    core.attitude.attitudeTo(hdg, pitch, autopilot.turnRoll, this, !vessel.Landed, !vessel.Landed, !vessel.Landed && (vesselState.altitudeBottom > 50), true);
+                    core.attitude.attitudeTo(hdg, pitch, autopilot.turnRoll, this, liftedOff, liftedOff, liftedOff && (vesselState.altitudeBottom > autopilot.rollAltitude), true);
                 }
             }
             else
             {
                 core.attitude.attitudeTo(desiredThrustVector, AttitudeReference.INERTIAL_COT, this);
             }
-        }
 
+
+            core.attitude.SetAxisControl(liftedOff, liftedOff, liftedOff && (vesselState.altitudeBottom > autopilot.rollAltitude));
+        }
     }
 
     public static class LaunchTiming

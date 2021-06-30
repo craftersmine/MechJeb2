@@ -13,6 +13,10 @@
         {
         }
 
+        public virtual void OnModuleEnabled()
+        {
+        }
+
         public virtual void OnStart()
         {
         }
@@ -49,13 +53,13 @@
 
         public abstract void DrivePre(FlightCtrlState s, out Vector3d act, out Vector3d deltaEuler);
 
-        public virtual void DrivePost(FlightCtrlState s)
+        public virtual void GUI()
         {
         }
 
-
-        public virtual void GUI()
+        public virtual void Reset(int i)
         {
+            Reset();
         }
     }
 }

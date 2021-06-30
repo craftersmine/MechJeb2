@@ -11,6 +11,7 @@ namespace MuMech
 {
     public class VesselState
     {
+        public static bool isLoadedPrincipia = false;
         public static bool isLoadedProceduralFairing = false;
         public static bool isLoadedRealFuels = false;
         // RealFuels.ModuleEngineRF ullageSet field to call via reflection
@@ -315,7 +316,9 @@ namespace MuMech
         public List<VesselStatePartModuleExtension> vesselStatePartModuleExtensions = new List<VesselStatePartModuleExtension>();
         public delegate double DTerminalVelocity();
 
-        static VesselState()
+        private static bool reflectionInitDone = false;
+
+        public void InitReflection()
         {
             FARVesselDragCoeff = null;
             FARVesselRefArea = null;
@@ -323,6 +326,7 @@ namespace MuMech
             FARVesselDynPres = null;
             isLoadedProceduralFairing = ReflectionUtils.isAssemblyLoaded("ProceduralFairings");
             isLoadedRealFuels = ReflectionUtils.isAssemblyLoaded("RealFuels");
+            isLoadedPrincipia = ReflectionUtils.isAssemblyLoaded("principia.ksp_plugin_adapter");
             if (isLoadedRealFuels)
             {
                 Debug.Log("MechJeb: RealFuels Assembly is loaded");
@@ -438,7 +442,7 @@ namespace MuMech
             isLoadedFAR = ReflectionUtils.isAssemblyLoaded("FerramAerospaceResearch");
             if (isLoadedFAR)
             {
-                List<string> farNames = new List<string>{ "VesselDragCoeff", "VesselRefArea", "VesselTermVelEst", "VesselDynPres" };
+                List<string> farNames = new List<string> { "VesselDragCoeff", "VesselRefArea", "VesselTermVelEst", "VesselDynPres" };
                 foreach (var name in farNames)
                 {
                     var methodInfo = ReflectionUtils.getMethodByReflection(
@@ -475,10 +479,13 @@ namespace MuMech
                     FARCalculateVesselAeroForces = (FARCalculateVesselAeroForcesDelegate)Delegate.CreateDelegate(typeof(FARCalculateVesselAeroForcesDelegate), FARCalculateVesselAeroForcesMethodInfo);
                 }
             }
+            reflectionInitDone = true;
         }
 
         public VesselState()
         {
+            if (!reflectionInitDone && HighLogic.LoadedSceneIsGame)
+                InitReflection();
             if (isLoadedFAR)
             {
                 TerminalVelocityCall = TerminalVelocityFAR;
@@ -488,8 +495,6 @@ namespace MuMech
                 TerminalVelocityCall = TerminalVelocityStockKSP;
             }
         }
-
-        private double last_update;
 
         //public static bool SupportsGimbalExtension<T>() where T : PartModule
         //{
@@ -502,7 +507,7 @@ namespace MuMech
         //}
         public bool Update(Vessel vessel)
         {
-            if (last_update == Planetarium.GetUniversalTime())
+            if (time == Planetarium.GetUniversalTime())
                 return true;
 
             if (vessel.rootPart.rb == null) return false; //if we try to update before rigidbodies exist we spam the console with NullPointerExceptions.
@@ -526,8 +531,6 @@ namespace MuMech
             ToggleRCSThrust(vessel);
 
             UpdateMoIAndAngularMom(vessel);
-
-            last_update = Planetarium.GetUniversalTime();;
 
             return true;
         }
@@ -661,7 +664,7 @@ namespace MuMech
             horizontalOrbit = Vector3d.Exclude(up, orbitalVelocity).normalized;
             horizontalSurface = Vector3d.Exclude(up, surfaceVelocity).normalized;
 
-            angularVelocity = Quaternion.Inverse(vessel.GetTransform().rotation) * vessel.rootPart.rb.angularVelocity;
+            angularVelocity = vessel.angularVelocity;
 
             radialPlusSurface = Vector3d.Exclude(surfaceVelocity, up).normalized;
             radialPlus = Vector3d.Exclude(orbitalVelocity, up).normalized;
@@ -819,7 +822,7 @@ namespace MuMech
                     //if (rcsbal.enabled)
                     //    continue;
 
-                    if (!p.ShieldedFromAirstream && rcs.rcsEnabled && rcs.isEnabled && !rcs.isJustForShow)
+                    if (!p.ShieldedFromAirstream && rcs.rcsEnabled && rcs.isEnabled && !rcs.isJustForShow && !rcs.flameout && rcs.rcs_active)
                     {
                         Vector3 attitudeControl = new Vector3(rcs.enablePitch ? 1 : 0, rcs.enableRoll ? 1 : 0, rcs.enableYaw ? 1 : 0);
 
@@ -827,11 +830,19 @@ namespace MuMech
                         for (int j = 0; j < rcs.thrusterTransforms.Count; j++)
                         {
                             Transform t = rcs.thrusterTransforms[j];
+
+                            // Borrowed from kOS:  As of KSP 1.11.x, RCS parts now use part variants.  To prevent
+                            // counting torque as if the superset of all variant nozzles were present, the ones not
+                            // currently active have to be culled out here, since KSP isn't culling them out itself when
+                            // it populates ModuleRCS.thrusterTransforms:
+                            if (!t.gameObject.activeInHierarchy)
+                                continue;
+
                             Vector3d thrusterPosition = t.position - movingCoM;
 
                             Vector3d thrustDirection = rcs.useZaxis ? -t.forward : -t.up;
 
-                            float power = rcs.thrusterPower;
+                            float power = rcs.thrusterPower * rcs.thrustPercentage * 0.01f;
 
                             if (FlightInputHandler.fetch.precisionMode)
                             {
@@ -1279,7 +1290,7 @@ namespace MuMech
             if (thrustVectorMaxThrottle.magnitude == 0 && vessel.ActionGroups[KSPActionGroup.RCS])
             {
                 rcsThrust = true;
-                thrustVectorMaxThrottle += (Vector3d)(vessel.transform.up) * rcsThrustAvailable.down;
+                thrustVectorMaxThrottle += forward * rcsThrustAvailable.down;
             }
             else
             {
@@ -1984,7 +1995,5 @@ namespace MuMech
                 _maxVariableTorque = maxVariableTorque;
             }
         }
-
-
     }
 }

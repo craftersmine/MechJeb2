@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="..\packages\Microsoft.Net.Compilers.3.6.0\build\Microsoft.Net.Compilers.props" Condition="Exists('..\packages\Microsoft.Net.Compilers.3.6.0\build\Microsoft.Net.Compilers.props')" />
+  <Import Project="..\packages\Microsoft.Net.Compilers.3.8.0\build\Microsoft.Net.Compilers.props" Condition="Exists('..\packages\Microsoft.Net.Compilers.3.8.0\build\Microsoft.Net.Compilers.props')" />
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -10,17 +10,16 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>MuMech</RootNamespace>
     <AssemblyName>MechJeb2</AssemblyName>
-    <TargetFrameworkVersion>v4.7</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <NoStdLib>true</NoStdLib>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />
-    <RunPostBuildEvent>Always</RunPostBuildEvent>
     <NuGetPackageImportStamp>
     </NuGetPackageImportStamp>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
+    <DebugType>portable</DebugType>
     <Optimize>false</Optimize>
     <OutputPath>bin\Debug\</OutputPath>
     <DefineConstants>TRACE;DEBUG;ENABLE_PROFILER;UNITY_2017_1</DefineConstants>
@@ -44,13 +43,14 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="AttitudeControllers\BaseAttitudeController.cs" />
+    <Compile Include="AttitudeControllers\BetterController.cs" />
     <Compile Include="AttitudeControllers\HybridController.cs" />
     <Compile Include="AttitudeControllers\KosAttitudeController.cs" />
     <Compile Include="AttitudeControllers\MJAttitudeController.cs" />
+    <Compile Include="AttitudeControllers\KosPIDLoop.cs" />
     <Compile Include="AttitudeControllers\PIDLoop.cs" />
     <Compile Include="AttitudeControllers\TorquePI.cs" />
     <Compile Include="AutopilotModule.cs" />
-    <Compile Include="Brent.cs" />
     <Compile Include="CelestialBodyExtensions.cs" />
     <Compile Include="CompatibilityChecker.cs" />
     <Compile Include="ComputerModule.cs" />
@@ -59,6 +59,8 @@
     <Compile Include="FlyingSim\SimulatedPart.cs" />
     <Compile Include="FlyingSim\SimulatedVessel.cs" />
     <Compile Include="FuelFlowSimulation.cs" />
+    <Compile Include="FuelNode.cs" />
+    <Compile Include="FuelStats.cs" />
     <Compile Include="GLUtils.cs" />
     <Compile Include="GoodingSolver.cs" />
     <Compile Include="GuiUtils.cs" />
@@ -95,6 +97,19 @@
     <Compile Include="Maneuver\TimeSelector.cs" />
     <Compile Include="Maneuver\TransferCalculator.cs" />
     <Compile Include="MathExtensions.cs" />
+    <Compile Include="MathJ\AVL.cs" />
+    <Compile Include="MathJ\BrentMin.cs" />
+    <Compile Include="MathJ\BrentRoot.cs" />
+    <Compile Include="MathJ\CN.cs" />
+    <Compile Include="MathJ\Curve.cs" />
+    <Compile Include="MathJ\Event.cs" />
+    <Compile Include="MathJ\DormandPrince.cs" />
+    <Compile Include="MathJ\Functions.cs" />
+    <Compile Include="MathJ\ObjectPool.cs" />
+    <Compile Include="MathJ\ODE.cs" />
+    <Compile Include="MathJ\ODESolver.cs" />
+    <Compile Include="MathJ\Utils.cs" />
+    <Compile Include="Matrix3x3d.cs" />
     <Compile Include="MechJebAR202.cs" />
     <Compile Include="MechJebCore.cs" />
     <Compile Include="MechJebModuleAirplaneAutopilot.cs" />
@@ -154,14 +169,15 @@
     <Compile Include="MechjebBundlesManager.cs" />
     <Compile Include="ModExtensionDemo.cs" />
     <Compile Include="MuUtils.cs" />
-    <Compile Include="ODE.cs" />
     <Compile Include="OrbitExtensions.cs" />
     <Compile Include="OrbitalManeuverCalculator.cs" />
     <Compile Include="PIDController.cs" />
     <Compile Include="PartExtensions.cs" />
+    <Compile Include="Pontryagin\Arc.cs" />
     <Compile Include="Pontryagin\PontryaginBase.cs" />
     <Compile Include="Pontryagin\PontryaginLaunch.cs" />
     <Compile Include="Pontryagin\PontryaginNode.cs" />
+    <Compile Include="Pontryagin\Solution.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Properties\Resources.Designer.cs" />
     <Compile Include="RCSSolver.cs" />
@@ -243,60 +259,79 @@
   <ItemGroup>
     <Reference Include="Assembly-CSharp, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
+      <Private>False</Private>
     </Reference>
     <Reference Include="Assembly-CSharp-firstpass, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
+      <Private>False</Private>
     </Reference>
     <Reference Include="mscorlib">
     </Reference>
     <Reference Include="System">
     </Reference>
+    <Reference Include="System.Buffers, Version=4.0.3.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51">
+      <HintPath>..\packages\System.Buffers.4.5.1\lib\net461\System.Buffers.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="System.Core">
     </Reference>
     <Reference Include="UnityEngine, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
+      <Private>False</Private>
     </Reference>
     <Reference Include="UnityEngine.AnimationModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
+      <Private>False</Private>
     </Reference>
     <Reference Include="UnityEngine.AssetBundleModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
+      <Private>False</Private>
     </Reference>
     <Reference Include="UnityEngine.CoreModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
+      <Private>False</Private>
     </Reference>
     <Reference Include="UnityEngine.ImageConversionModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
+      <Private>False</Private>
     </Reference>
     <Reference Include="UnityEngine.IMGUIModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
+      <Private>False</Private>
     </Reference>
     <Reference Include="UnityEngine.InputLegacyModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
+      <Private>False</Private>
     </Reference>
     <Reference Include="UnityEngine.PhysicsModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
+      <Private>False</Private>
     </Reference>
     <Reference Include="UnityEngine.TextRenderingModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
+      <Private>False</Private>
     </Reference>
     <Reference Include="UnityEngine.UI, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
+      <Private>False</Private>
     </Reference>
     <Reference Include="UnityEngine.VehiclesModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
+      <Private>False</Private>
     </Reference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <PropertyGroup>
-    <PostBuildEvent Condition=" '$(OS)' == 'Windows_NT' ">call "$(ProjectDir)copy_build.bat" "$(TargetPath)" "$(TargetDir)" "$(TargetName)" "$(ProjectDir)"</PostBuildEvent>
-    <PostBuildEvent Condition=" '$(OS)' != 'Windows_NT' ">sh -c "TARGET_PATH='$(TargetPath)' TARGET_DIR='$(TargetDir)' TARGET_NAME='$(TargetName)' PROJECT_DIR='$(ProjectDir)' sh '$(ProjectDir)/copy_build.sh'"</PostBuildEvent>
-  </PropertyGroup>
+  <Target Name="AfterBuild" Condition=" '$(OS)' == 'Windows_NT' ">
+    <Exec Command="call &quot;$(ProjectDir)copy_build.bat&quot; &quot;$(TargetPath)&quot; &quot;$(TargetDir)&quot; &quot;$(TargetName)&quot; &quot;$(ProjectDir)&quot;" />
+  </Target>
+  <Target Name="AfterBuild">
+    <Exec Command="'$(ProjectDir)/copy_build.sh' '$(TargetPath)' '$(TargetDir)' '$(TargetName)' '$(ProjectDir)'" />
+  </Target>
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>
       <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
     </PropertyGroup>
-    <Error Condition="!Exists('..\packages\Microsoft.Net.Compilers.3.6.0\build\Microsoft.Net.Compilers.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.Net.Compilers.3.6.0\build\Microsoft.Net.Compilers.props'))" />
+    <Error Condition="!Exists('..\packages\Microsoft.Net.Compilers.3.8.0\build\Microsoft.Net.Compilers.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.Net.Compilers.3.8.0\build\Microsoft.Net.Compilers.props'))" />
   </Target>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it.
        Other similar extension points exist, see Microsoft.Common.targets.

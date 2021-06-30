@@ -10,7 +10,7 @@ namespace MuMech {
         {
         }
 
-        public bool omitCoast;
+        public double fixedCoast;
 
         double rTm;
         double vTm;
@@ -412,12 +412,12 @@ namespace MuMech {
             }
         }
 
-        public override void Bootstrap(double t0)
+        protected override void Bootstrap(double t0)
         {
             int stageCount = numStages > 0 ? numStages : stages.Count;
 
             // build arcs off of ksp stages, with coasts
-            List<Arc> arcs = new List<Arc>();
+            ArcList arcs = new ArcList();
             for(int i = 0; i < stageCount; i++)
             {
                 arcs.Add(new Arc(this, stage: stages[i], t0: t0));
@@ -429,9 +429,9 @@ namespace MuMech {
             // allocate y0
             y0 = new double[arcIndex(arcs, arcs.Count)];
 
-            // update initial position and guess for first arc
-            double ve = g0 * stages[0].isp;
-            tgo = ve * stages[0].startMass / stages[0].startThrust * ( 1 - Math.Exp(-dV/ve) );
+            // update initial position and guess for first arc (uses effective thrust to deal with ullage motors)
+            double ve = g0 * stages[0].Isp;
+            tgo = ve * stages[0].StartMass / stages[0].EffectiveThrust * ( 1 - Math.Exp(-dV/ve) );
             tgo_bar = tgo / t_scale;
 
             // initialize overall burn time
@@ -443,7 +443,6 @@ namespace MuMech {
             yf = new double[arcs.Count*13];
             multipleIntegrate(y0, yf, arcs, initialize: true);
 
-
             if ( !runOptimizer(arcs) )
             {
                 Fatal("Target is unreachable even with infinite ISP");
@@ -451,7 +450,7 @@ namespace MuMech {
             }
 
             Solution new_sol = new Solution(t_scale, v_scale, r_scale, t0);
-            multipleIntegrate(y0, new_sol, arcs, 10);
+            multipleIntegrate(y0, new_sol, arcs);
 
             for(int i = arcs.Count - 1; i >= 0; i--)
             {
@@ -464,9 +463,14 @@ namespace MuMech {
 
             bool insertedCoast = false;
 
-            if (arcs.Count > 1 && !omitCoast)
+            if (arcs.Count > 1 && fixedCoast < 0)
             {
                 InsertCoast(arcs, arcs.Count-1, new_sol);
+                insertedCoast = true;
+            }
+            if (fixedCoast > 0)
+            {
+                InsertCoast(arcs, arcs.Count - 1, new_sol, fixedCoast);
                 insertedCoast = true;
             }
             arcs[arcs.Count-1].infinite = false;
@@ -478,7 +482,7 @@ namespace MuMech {
             {
                 if (!arcs[i].coast)
                 {
-                    tot_bt_bar += arcs[i].max_bt_bar;
+                    tot_bt_bar += arcs[i].MaxBtBar;
                 }
             }
 
@@ -512,11 +516,9 @@ namespace MuMech {
             if (insertedCoast)
             {
                 new_sol = new Solution(t_scale, v_scale, r_scale, t0);
-                multipleIntegrate(y0, new_sol, arcs, 10);
+                multipleIntegrate(y0, new_sol, arcs);
 
                 double coastlen = new_sol.tgo(new_sol.t0, arcs.Count-2); // human seconds
-                double coast_time = y0[arcIndex(arcs, arcs.Count-2, parameters: true)]; // normalized units
-                double max_coast_time = Math.PI / 5.0; // 36 degrees
 
                 if ( coastlen < 1 )
                 {
@@ -530,30 +532,17 @@ namespace MuMech {
                         return;
                     }
                 }
-                else if ( coast_time > max_coast_time )
-                {
-                    DebugLog("optimium coast exceeded maximum normalized time (roughly 1/4 of an arc around the planet) and was truncated.");
-                    arcs[arcs.Count-2].use_fixed_time2 = true;
-                    arcs[arcs.Count-2].fixed_time = max_coast_time * t_scale;
-                    arcs[arcs.Count-2].fixed_tbar = max_coast_time;
-                    y0[arcIndex(arcs, arcs.Count-2, parameters: true)] = max_coast_time;
-                    multipleIntegrate(y0, yf, arcs, initialize: true);
-                    if ( !runOptimizer(arcs) )
-                    {
-                        Fatal("Optimizer exploded after truncating long coast (weird)");
-                        y0 = null;
-                        return;
-                    }
-                }
             }
 
             new_sol = new Solution(t_scale, v_scale, r_scale, t0);
-            multipleIntegrate(y0, new_sol, arcs, 10);
+            multipleIntegrate(y0, new_sol, arcs);
 
-            this.solution = new_sol;
+            Solution = new_sol;
 
             yf = new double[arcs.Count*13];
             multipleIntegrate(y0, yf, arcs);
+
+            DebugLog($"PVG: arcs in solution after bootstrapping launch: {arcs}");
         }
 
         /*

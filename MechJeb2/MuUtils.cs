@@ -89,6 +89,12 @@ namespace MuMech
             return x;
         }
 
+        //clamp to [0,1]
+        public static double Clamp01(double x)
+        {
+            return Clamp(x, 0, 1);
+        }
+
         //keeps angles in the range 0 to 360
         public static double ClampDegrees360(double angle)
         {
@@ -507,56 +513,6 @@ namespace MuMech
         public static Vector2d operator *(Matrix2x2 M, Vector2d vec)
         {
             return new Vector2d(M.a * vec.x + M.b * vec.y, M.c * vec.x + M.d * vec.y);
-        }
-    }
-
-    //Is it silly to have a Matrix2x2 and a Matrix3x3, and not a generic Matrix? Yes.
-    //However I don't feel like implementing inverse() for matrices larger than
-    //2x2, and I want Matrix3x3f to interact nicely with Vector3.
-    public class Matrix3x3f
-    {
-        //row index, then column index
-        private float[,] e = new float[3, 3];
-
-        public float this[int i, int j]
-        {
-            get { return e[i, j]; }
-            set { e[i, j] = value; }
-        }
-
-        public void reset()
-        {
-            for (int i = 0; i < 3; i++)
-            {
-                for (int j = 0; j < 3; j++)
-                {
-                    e[i, j] = 0;
-                }
-            }
-        }
-
-        public Matrix3x3f transpose()
-        {
-            Matrix3x3f ret = new Matrix3x3f();
-            for (int i = 0; i < 3; i++)
-            {
-                for (int j = 0; j < 3; j++)
-                {
-                    ret.e[i, j] = e[j, i];
-                }
-            }
-            return ret;
-        }
-
-        public static Vector3d operator *(Matrix3x3f M, Vector3 v)
-        {
-            Vector3 ret = Vector3.zero;
-            for(int i = 0; i < 3; i++) {
-                for(int j = 0; j < 3; j++) {
-                    ret[i] += M.e[i, j] * v[j];
-                }
-            }
-            return ret;
         }
     }
 }

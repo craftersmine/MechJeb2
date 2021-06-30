@@ -17,9 +17,9 @@ namespace MuMech
 
         //adjustable parameters:
         [Persistent(pass = (int)(Pass.Type | Pass.Global))]
-        public EditableDouble autostagePreDelay = 0.5;
+        public EditableDouble autostagePreDelay = 0.0;
         [Persistent(pass = (int)(Pass.Type | Pass.Global))]
-        public EditableDouble autostagePostDelay = 1.0;
+        public EditableDouble autostagePostDelay = 0.5;
         [Persistent(pass = (int)(Pass.Type | Pass.Global))]
         public EditableInt autostageLimit = 0;
         [Persistent(pass = (int)(Pass.Type | Pass.Global))]
@@ -50,7 +50,7 @@ namespace MuMech
         private readonly List<ModuleEngines> activeModuleEngines = new List<ModuleEngines>();
         private readonly List<int> burnedResources = new List<int>();
         private MechJebModuleStageStats stats { get { return core.GetComputerModule<MechJebModuleStageStats>(); } }
-        private FuelFlowSimulation.Stats[] vacStats { get { return stats.vacStats; } }
+        private FuelFlowSimulation.FuelStats[] vacStats { get { return stats.vacStats; } }
 
         private enum RemoteStagingState
         {
@@ -179,7 +179,7 @@ namespace MuMech
             //don't decouple active or idle engines or tanks
             UpdateActiveModuleEngines();
             UpdateBurnedResources();
-            if (InverseStageDecouplesActiveOrIdleEngineOrTank(vessel.currentStage - 1, vessel, burnedResources, activeModuleEngines))
+            if (InverseStageDecouplesActiveOrIdleEngineOrTank(vessel.currentStage - 1, vessel, burnedResources, activeModuleEngines) && !InverseStageReleasesClamps(vessel.currentStage - 1, vessel))
                 return;
 
             // prevent staging when the current stage has active engines and the next stage has any engines (but not decouplers or clamps)
@@ -270,8 +270,8 @@ namespace MuMech
         public double LastNonZeroDVStageBurnTime()
         {
             for ( int i = vacStats.Length-1; i >= 0; i-- )
-                if ( vacStats[i].deltaTime > 0 )
-                    return vacStats[i].deltaTime;
+                if ( vacStats[i].DeltaTime > 0 )
+                    return vacStats[i].DeltaTime;
             return 0;
         }
 
@@ -381,11 +381,8 @@ namespace MuMech
             for (int i = 0; i < v.parts.Count; i++)
             {
                 Part p = v.parts[i];
-                Part decoupled;
-                if (p.inverseStage == inverseStage && p.IsUnfiredDecoupler(out decoupled))
-                {
+                if (p.inverseStage == inverseStage && p.IsUnfiredDecoupler(out Part decoupled))
                     return true;
-                }
             }
             return false;
         }
@@ -410,11 +407,8 @@ namespace MuMech
             for (int i = 0; i < v.parts.Count; i++)
             {
                 Part p = v.parts[i];
-                Part decoupledPart;
-                if (p.inverseStage == inverseStage && p.IsUnfiredDecoupler(out decoupledPart) && HasDeactivatedEngineOrTankDescendant(decoupledPart))
-                {
+                if (p.inverseStage == inverseStage && p.IsUnfiredDecoupler(out Part decoupledPart) && HasDeactivatedEngineOrTankDescendant(decoupledPart))
                     return true;
-                }
             }
             return false;
         }
@@ -422,6 +416,9 @@ namespace MuMech
         //detect if a part is above a deactivated engine or fuel tank
         public static bool HasDeactivatedEngineOrTankDescendant(Part p)
         {
+            if (p is null)
+                return false;
+
             if ((p.State == PartStates.DEACTIVATED) && (p.IsEngine()) && !p.IsSepratron())
             {
                 return true; // TODO: yet more ModuleEngine lazy checks
@@ -444,9 +441,7 @@ namespace MuMech
             for (int i = 0; i < p.children.Count; i++)
             {
                 if (HasDeactivatedEngineOrTankDescendant(p.children[i]))
-                {
                     return true;
-                }
             }
             return false;
         }

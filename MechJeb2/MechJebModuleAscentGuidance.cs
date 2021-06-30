@@ -24,7 +24,7 @@ namespace MuMech
         public MechJebModuleAscentPVG pvgascent { get { return core.GetComputerModule<MechJebModuleAscentPVG>(); } }
         public MechJebModuleAscentGT gtascent { get { return core.GetComputerModule<MechJebModuleAscentGT>(); } }
         private MechJebModuleStageStats stats { get { return core.GetComputerModule<MechJebModuleStageStats>(); } }
-        private FuelFlowSimulation.Stats[] atmoStats { get { return stats.atmoStats; } }
+        private FuelFlowSimulation.FuelStats[] atmoStats { get { return stats.atmoStats; } }
 
         private ascentType ascentPathIdx { get { return autopilot.ascentPathIdxPublic; } }
 
@@ -147,15 +147,15 @@ namespace MuMech
                     {
 
                         GuiUtils.SimpleTextBox(Localizer.Format("#MechJeb_Ascent_label1"), autopilot.desiredOrbitAltitude, "km");//Target Periapsis
-                        GuiUtils.SimpleTextBox(Localizer.Format("#MechJeb_Ascent_label2"), pvgascent.desiredApoapsis, "km");//Target Apoapsis:
+                        GuiUtils.SimpleTextBox(Localizer.Format("#MechJeb_Ascent_label2"), pvgascent.DesiredApoapsis, "km");//Target Apoapsis:
 
                         GUILayout.BeginHorizontal();
-                        pvgascent.attachAltFlag = GUILayout.Toggle(pvgascent.attachAltFlag, Localizer.Format("#MechJeb_Ascent_attachAlt"));//Attach Altitude:
-                        pvgascent.desiredAttachAlt.text = GUILayout.TextField(pvgascent.desiredAttachAlt.text);
+                        pvgascent.AttachAltFlag = GUILayout.Toggle(pvgascent.AttachAltFlag, Localizer.Format("#MechJeb_Ascent_attachAlt"));//Attach Altitude:
+                        pvgascent.DesiredAttachAlt.text = GUILayout.TextField(pvgascent.DesiredAttachAlt.text);
                         GUILayout.Label("km", GUILayout.ExpandWidth(false));
                         GUILayout.EndHorizontal();
 
-                        if ( pvgascent.desiredApoapsis >= 0 && pvgascent.desiredApoapsis < autopilot.desiredOrbitAltitude )
+                        if ( pvgascent.DesiredApoapsis >= 0 && pvgascent.DesiredApoapsis < autopilot.desiredOrbitAltitude )
                         {
                             GUIStyle s = new GUIStyle(GUI.skin.label);
                             s.normal.textColor = Color.yellow;
@@ -163,9 +163,9 @@ namespace MuMech
                         }
                         else
                         {
-                            if ( pvgascent.attachAltFlag )
+                            if ( pvgascent.AttachAltFlag )
                             {
-                                if ( pvgascent.desiredAttachAlt > pvgascent.desiredApoapsis )
+                                if ( pvgascent.DesiredAttachAlt > pvgascent.DesiredApoapsis )
                                 {
                                     GUIStyle s = new GUIStyle(GUI.skin.label);
                                     s.normal.textColor = XKCDColors.Orange;
@@ -173,15 +173,15 @@ namespace MuMech
                                 }
                             }
                         }
-                        if ( pvgascent.desiredApoapsis < 0 )
+                        if ( pvgascent.DesiredApoapsis < 0 )
                         {
                             GUIStyle s = new GUIStyle(GUI.skin.label);
                             s.normal.textColor = XKCDColors.Orange;
                             GUILayout.Label(Localizer.Format("#MechJeb_Ascent_label4"), s);//Hyperbolic target orbit (neg Ap)
                         }
-                        if ( pvgascent.attachAltFlag )
+                        if ( pvgascent.AttachAltFlag )
                         {
-                            if ( pvgascent.desiredAttachAlt < autopilot.desiredOrbitAltitude )
+                            if ( pvgascent.DesiredAttachAlt < autopilot.desiredOrbitAltitude )
                             {
                                 GUIStyle s = new GUIStyle(GUI.skin.label);
                                 s.normal.textColor = XKCDColors.Orange;
@@ -228,8 +228,15 @@ namespace MuMech
                     else if (ascentPathIdx == ascentType.PVG)
                     {
                         GUILayout.BeginVertical();
-                        GuiUtils.SimpleTextBox(Localizer.Format("#MechJeb_Ascent_label13"), pvgascent.pitchStartVelocity, "m/s");//Booster Pitch start:
-                        GuiUtils.SimpleTextBox(Localizer.Format("#MechJeb_Ascent_label14"), pvgascent.pitchRate, "°/s");//Booster Pitch rate:
+                        GuiUtils.SimpleTextBox(Localizer.Format("#MechJeb_Ascent_label13"), pvgascent.PitchStartVelocity, "m/s");//Booster Pitch start:
+                        GuiUtils.SimpleTextBox(Localizer.Format("#MechJeb_Ascent_label14"), pvgascent.PitchRate, "°/s");//Booster Pitch rate:
+                        GuiUtils.SimpleTextBox("Q Trigger:", pvgascent.DynamicPressureTrigger, "kPa");
+
+                        GUILayout.BeginHorizontal();
+                        pvgascent.StagingTriggerFlag  = GUILayout.Toggle(pvgascent.StagingTriggerFlag,"PVG After Stage:");
+                        pvgascent.StagingTrigger.text = GUILayout.TextField(pvgascent.StagingTrigger.text);
+                        GUILayout.EndHorizontal();
+
                         GuiUtils.SimpleTextBox(Localizer.Format("#MechJeb_Ascent_label15"), core.guidance.pvgInterval, "s");//Guidance Interval:
                         if ( core.guidance.pvgInterval < 1 || core.guidance.pvgInterval > 30 )
                         {
@@ -250,7 +257,10 @@ namespace MuMech
                             else
                                 GUILayout.Label(Localizer.Format("#MechJeb_Ascent_label20"), s);//Qα limit is recommended to be 1000 to 4000 Pa-rad
                         }
-                        pvgascent.omitCoast = GUILayout.Toggle(pvgascent.omitCoast, Localizer.Format("#MechJeb_Ascent_checkbox1"));//Omit Coast
+                        GUILayout.BeginHorizontal();
+                        pvgascent.FixedCoast  = GUILayout.Toggle(pvgascent.FixedCoast,"Fixed Coast Length:");
+                        pvgascent.FixedCoastLength.text = GUILayout.TextField(pvgascent.FixedCoastLength.text);
+                        GUILayout.EndHorizontal();
                         GUILayout.EndVertical();
                     }
                 }
@@ -290,8 +300,9 @@ namespace MuMech
                     autopilot.forceRoll = GUILayout.Toggle(autopilot.forceRoll, Localizer.Format("#MechJeb_Ascent_checkbox2"));//Force Roll
                     if (autopilot.forceRoll)
                     {
-                        GuiUtils.SimpleTextBox(Localizer.Format("#MechJeb_Ascent_label22"), autopilot.verticalRoll, "º", 30f);//climb
-                        GuiUtils.SimpleTextBox(Localizer.Format("#MechJeb_Ascent_label23"), autopilot.turnRoll, "º", 30f);//turn
+                        GuiUtils.SimpleTextBox(Localizer.Format("#MechJeb_Ascent_label22"), autopilot.verticalRoll, "º", 30f); //climb
+                        GuiUtils.SimpleTextBox(Localizer.Format("#MechJeb_Ascent_label23"), autopilot.turnRoll, "º", 30f);     //turn
+                        GuiUtils.SimpleTextBox("Alt", autopilot.rollAltitude, "m", 30f);
                     }
                     GUILayout.EndHorizontal();
 
@@ -396,7 +407,7 @@ namespace MuMech
                         if ( core.guidance.last_failure_cause != null )
                         {
                             GUIStyle s = new GUIStyle(GUI.skin.label);
-                            s.normal.textColor = Color.red;
+                            s.normal.textColor = core.guidance.staleness < 2 && core.guidance.successful_converges > 0 ? Color.green : Color.red;
                             GUILayout.BeginHorizontal();
                             GUILayout.Label(Localizer.Format("#MechJeb_Ascent_label30") + core.guidance.last_failure_cause, s);//LAST FAILURE:
                             GUILayout.EndHorizontal();
@@ -404,8 +415,8 @@ namespace MuMech
 
                         if ( vessel.situation != Vessel.Situations.LANDED && vessel.situation != Vessel.Situations.PRELAUNCH && vessel.situation != Vessel.Situations.SPLASHED && atmoStats.Length > vessel.currentStage)
                         {
-                            double m0 = atmoStats[vessel.currentStage].startMass;
-                            double thrust = atmoStats[vessel.currentStage].startThrust;
+                            double m0 = atmoStats[vessel.currentStage].StartMass;
+                            double thrust = atmoStats[vessel.currentStage].EndThrust;
 
                             if (Math.Abs(vesselState.mass - m0) / m0 > 0.01)
                             {
@@ -416,7 +427,9 @@ namespace MuMech
                                 GUILayout.EndHorizontal();
                             }
 
-                            if (Math.Abs(vesselState.thrustCurrent - thrust) / thrust > 0.01)
+                            double thrustfrac = Math.Abs(vesselState.thrustCurrent - thrust) / thrust;
+
+                            if (thrustfrac > 0.10 && thrustfrac < 0.99)
                             {
                                 GUIStyle s = new GUIStyle(GUI.skin.label);
                                 s.normal.textColor = Color.yellow;

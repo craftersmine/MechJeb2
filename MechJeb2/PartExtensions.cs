@@ -48,16 +48,16 @@ namespace MuMech
             {
                 PartModule m = p.Modules[i];
                 ModuleEngines eng = m as ModuleEngines;
-                if (eng != null) return !eng.getFlameoutState;
-
+                if (eng != null)
+                    return !eng.getFlameoutState && !eng.engineShutdown;
             }
             return false;
         }
 
         public static double FlowRateAtConditions(this ModuleEngines e, double throttle, double flowMultiplier)
         {
-            double minFuelFlow = e.minFuelFlow;
-            double maxFuelFlow = e.maxFuelFlow;
+            float minFuelFlow = e.minFuelFlow;
+            float maxFuelFlow = e.maxFuelFlow;
 
             // Some brilliant engine mod seems to consider that FuelFlow is not something they should properly initialize
             if (minFuelFlow == 0 && e.minThrust > 0)
@@ -70,7 +70,7 @@ namespace MuMech
                 maxFuelFlow = e.maxThrust / (e.atmosphereCurve.Evaluate(0f) * e.g);
             }
 
-            return Mathf.Lerp(e.minFuelFlow, e.maxFuelFlow, (float)throttle * 0.01f * e.thrustPercentage) * flowMultiplier;
+            return Mathf.Lerp(minFuelFlow, maxFuelFlow, (float)throttle * 0.01f * e.thrustPercentage) * flowMultiplier;
         }
 
         // for a single EngineModule, determine its flowMultiplier, subject to atmDensity + machNumber
